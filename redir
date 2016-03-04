@@ -1,0 +1,60 @@
+
+#!/bin/bash
+
+CONF=/etc/redir.conf
+
+_RESET() {
+iptables -t nat --line-numbers -L | egrep '[0-9]|Chain|#' | sed 's/Chain //g' | awk '{print $1}' | while read LINE; do
+    echo $LINE | grep '[0-9]' > /dev/null
+    if [ "$?" = "0" ]; then
+        printf "$LINE "
+    else
+        printf "\n$LINE|"
+    fi
+done
+printf '\n'
+}
+
+_REDIR() {
+iptables -t nat -A PREROUTING -i eth0 -p "${3}" --dport "${1}" -j DNAT --to-destination "${2}"
+}
+
+_CONF() {
+egrep -v '^#|^$' <  $CONF
+}
+
+if [ "$1" = "reset" ]; then
+        _RESET | grep -v '^$' | while read LINE; do
+            read CHAIN <<< "`echo "$LINE" | cut -d'|' -f1`"
+            read NUMS <<< "`echo "$LINE" | cut -d'|' -f2`"
+            for VAR in `echo $NUMS | tr ' ' '\n' | tac | tr '\n' ' '`; do
+                iptables -t nat -D "$CHAIN" $VAR
+            done
+        done
+        read IPTBL <<< "`iptables -S | grep 'physdev-is-bridged' | tr '\n' '|'`"
+        iptables -F
+        iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+        iptables -A FORWARD -i eth0 -o xenbr0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+        iptables -A FORWARD -i xenbr0 -o eth0 -j ACCEPT
+        while read LINE; do
+            iptables "$LINE"
+        done < <("`echo $IPTBL | tr '|' '\n'`")
+        exit 0
+elif [ "$1" = "list" ]; then
+        iptables -t nat --line-numbers -L
+        iptables -S
+        exit 0
+elif [ "$1" = "del" ]; then
+    iptables -t nat -D "PREROUTING" $2
+    exit 0
+fi
+
+for i in $( iptables -t nat --line-numbers -L | grep "DNAT" | grep ^[0-9] | cut -d' ' -f1 | tac ); do
+    iptables -t nat -D "PREROUTING" $i
+done
+
+_CONF | while read LINE; do
+    read PORT IP TYPE <<< "`echo $LINE | awk '{print $1,$2,$3}'`"
+    _REDIR "$PORT" "$IP" "$TYPE"
+    echo "Rule for $TYPE $IP:$PORT done"
+done
