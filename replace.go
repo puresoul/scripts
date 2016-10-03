@@ -30,13 +30,12 @@ for Var < len(out)+1 {
     }
 
     if Chr == arg[0:1] {
-	word := os.Args[1]
 	Ch := 1
 	Ok := 1
 	
 	for Ch < len(out[Var-1:Var+Wr])+1 {
 	    W := out[Var-1:Var+Wr]
-	    C := word[Ch-1:Ch]
+	    C := arg[Ch-1:Ch]
 	    
 	    if W[Ch-1:Ch] == C {
 		Ok = Ok+1
