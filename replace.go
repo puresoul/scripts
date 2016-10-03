@@ -33,7 +33,6 @@ for Var < len(out)+1 {
 	word := os.Args[1]
 	Ch := 1
 	Ok := 1
-	ret := 0
 	
 	for Ch < len(out[Var-1:Var+Wr])+1 {
 	    W := out[Var-1:Var+Wr]
@@ -46,10 +45,6 @@ for Var < len(out)+1 {
 	}
 	
 	if Ok == len(out[Var-1:Var+Wr])+1 {
-	    ret = 1
-	}
-	
-	if ret == 1 {
 	    fmt.Print(os.Args[2])
 	    Var = Var+Wr+1
 	    continue
