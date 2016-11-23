@@ -6,7 +6,7 @@ USER="user"
 
 # Cesta k klici
 
-KEY=~/.ssh/id_rsa
+KEY="./id_rsa"
 
 # Seznam serveru, co radek to server
 
@@ -21,16 +21,15 @@ else
 
     for SERVER in $(echo $LIST); do
 	if [ "$1" = "-" ]; then
-	    ssh -t -i $KEY $USER@s$SERVER "echo '#!/bin/bash' > /tmp/cmd; echo \"$2\" >> /tmp/cmd; chmod 777 /tmp/cmd"
-	    ssh -t -i $KEY $USER@s$SERVER "sudo -S /tmp/cmd <<< '$3'"
-	    ssh -t -i $KEY $USER@s$SERVER "rm /tmp/cmd"
+	    ssh -t -i $KEY $USER@$SERVER "echo '#!/bin/bash' > /tmp/cmd; echo \"$2\" >> /tmp/cmd; chmod 777 /tmp/cmd"
+	    ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd <<< '$3'"
+	    ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd"
 	else
 	    printf "COMMAND FOR SERVER $SERVER:\n\n"
-	    ssh -t -i $KEY $USER@s$SERVER "sudo -S $1 <<< \"$2\""
+	    ssh -t -i $KEY $USER@$SERVER "sudo -S $1 <<< \"$2\""
 	    printf "\n\nDISCONECT FROM $SERVER\n"
 	fi
-	read ANY
-	test ANY && clear
+	read ANY; test "$ANY" && clear
     done
 
 fi
