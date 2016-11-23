@@ -8,14 +8,16 @@ USER="user"
 
 KEY="./id_rsa"
 
-# Seznam serveru, co radek to server
+# Seznam serveru
 
 LIST="s1 s2 s3"
 
-# Overeni ze byl zada prikaz
+# Overeni ze byl zadan prikaz
 
 if [ "$1" == "" ]; then
     echo "\$0 \"command\" \$1 sudo pass"
+    echo "or"
+    echo "\$0 \"-\" \"command\" \$1 sudo pass"
     exit
 else
 
