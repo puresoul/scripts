@@ -5,7 +5,7 @@ CONF=/etc/firewall
 . $CONF
 
 _CONF() {
-  iptables -A INPUT -p "$1" --dport "$2" -s "$3" -j ACCEPT
+  iptables -A INPUT -p $1 --dport $2 -s $3 -j ACCEPT
 }
 
 iptables -F
@@ -17,9 +17,9 @@ iptables -A INPUT -i lo -j ACCEPT
 
 while read LINE; do
 
-  TY="`$LINE | cut -d_ -f1`"
-  PORT="`$LINE | cut -d_ -f2`"
-  eval VAR="`echo $TY_$PORT`"
+  TY="`$LINE | cut -d\_ -f1`"
+  PORT="`$LINE | cut -d\_ -f2`"
+  eval VAR="\$${TY}_${PORT}"
   _CONF "$TY" "$PORT" "$VAR"
 
-done < <(env | egrep "TCP|UDP")
+done < <(env | egrep "TCP|UDP" | cut -d\= -f1)
