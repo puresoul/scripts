@@ -17,9 +17,10 @@ iptables -A INPUT -i lo -j ACCEPT
 
 while read LINE; do
 
-  TY="`$LINE | cut -d\_ -f1`"
-  PORT="`$LINE | cut -d\_ -f2`"
-  eval VAR="\$${TY}_${PORT}"
+  VAR="`echo $LINE | cut -d\= -f2`"
+  NAME="`echo $LINE | cut -d\= -f1`"
+  TY="`echo $NAME | cut -d\_ -f1 | tr [A-Z] [a-z]`"
+  PORT="`echo $NAME | cut -d\_ -f2`"
   _CONF "$TY" "$PORT" "$VAR"
 
-done < <(env | egrep "TCP|UDP" | cut -d\= -f1)
+done < <(env | grep -E "UDP|TCP")
