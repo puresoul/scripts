@@ -19,8 +19,9 @@ while read LINE; do
 
   VAR="`echo $LINE | cut -d\= -f2`"
   NAME="`echo $LINE | cut -d\= -f1`"
-  TY="`echo $NAME | cut -d\_ -f1 | tr [A-Z] [a-z]`"
+  TY="`echo $NAME | cut -d\_ -f1"
   PORT="`echo $NAME | cut -d\_ -f2`"
+  
   _CONF "$TY" "$PORT" "$VAR"
 
-done < <(env | grep -E "UDP|TCP")
+done < <(env | grep -E "udp|tcp")
