@@ -11,8 +11,8 @@ done
 }
 
 Head() {
-NAME="$1"
 
+NAME="$1"
 LEN="`echo $NAME | wc -m`"
 NEXT="$NAME"
 
@@ -27,50 +27,71 @@ fi
 printf "$NEXT"
 }
 
+
 if [ "$#" = "0" ]; then
     echo "\$1 - audio file to convert"
     echo "\$2 - the number in name of output file"
     exit 0
 fi
 
-if [ "`basename "$1" | cut -d\. -f2`" = "wav" ]; then
+DIR="$1"
+
+NUM=0
+
+while read FILE; do
+
+let NUM=NUM+1
+
+printf "$FILE"
+
+if [ "`echo "$FILE" | sed 's/$*.*\\.//'`" = "wav" ]; then
     SUFIX=".wav"
     STR="data"
-elif [ "`basename "$1" | cut -d\. -f2`" = "aif" ]; then
+elif [ "`echo "$FILE" | sed 's/$*.*\\.//'`" = "aif" ]; then
     STR="SSND"
     SUFIX=".aif"
 else
-    echo "Unknown suffix"
-    exit 1
+    printf " has Unknown suffix\n"
+    continue
 fi
 
-NAME="`Head "$(basename "$1" $SUFIX)"`"
+if [ "`echo $NUM | wc -c`" = "2" ]; then
+    FILENAME="000${NUM}"
+elif [ "`echo $NUM | wc -c`" = "3" ]; then
+    FILENAME="00${NUM}"
+elif [ "`echo $NUM | wc -c`" = "4" ]; then
+    FILENAME="0${NUM}"
+elif [ "`echo $NUM | wc -c`" = "5" ]; then
+    FILENAME="${NUM}"
+fi
 
-OFF="`Find "$1"`"
+if [ -f "smpl${FILENAME}.aif" ]; then
+    printf " skiped!\n"
+    exit 0
+else
+    printf " procesing,"
+fi
 
-dd if="$1" bs=1c of=tmp skip=$OFF
+NAME="`Head "$(basename "$" $SUFIX)"`"
 
-if [ "`basename "$1" | cut -d. -f2`" = "aif" ]; then
+OFF="`Find "$FILE"`"
+
+dd if="$FILE" bs=1c of=tmp skip=$OFF 2> /dev/null
+
+if [ "$SUFIX" = ".aif" ]; then
 
     printf "FORM!ÛäAIFFCOMM!!!!!ì|!@¬D!!!!!!MARK!!!\"!!!!!!beg.loop!!!ì|end.loop!INST!!!<!!!!!!!!!!!!!!APPL!!pRLNDroifxvmc!!!¸$NAME!!!!!!!!!ì|!ì|!!!	!!!!!!!!!!:ê!!uÔ!!°¾!!ë¨!&’!a|!œf!×P!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<!D\\\xvfs!! !!!!!	!!!!!!!!!!!!!:ê!!uÔ!!°¾!!ë¨!&’!a|!œf!×P!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<!D\!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" | tr '!' '\0' > header
 
-elif [ "`basename "$1" | cut -d. -f2`" = "wav" ]; then
+elif [ "$SUFIX" = ".wav" ]; then
 
     printf "RIFFˆ¾!!WAVEfmt !!!!!D¬!!±!!!RLNDl!!roifxvmc¸!!!$NAME!!!!!!!!ü.!!ü.!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<!ø*xvfs !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<!ø*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" | tr '!' '\0' > header
 
 else
-    exit 1
+    continue
 fi
 
+cat header tmp > smpl${FILENAME}.aif
 
-if [ "`echo $2 | wc -c`" = "2" ]; then
-    NAME="000${2}"
-elif [ "`echo $2 | wc -c`" = "3" ]; then
-    NAME="00${2}"
-elif [ "`echo $2 | wc -c`" = "4" ]; then
-    NAME="0${2}"
-elif [ "`echo $2 | wc -c`" = "5" ]; then
-    NAME="${2}"
-fi
+printf " Done!\n"
 
-cat header tmp > smpl${NAME}.aif
+done < <(find "$1" -type f)
