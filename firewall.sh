@@ -1,27 +1,74 @@
 #!/bin/bash
 
-CONF=/etc/firewall
+Conf="$1"
 
-. $CONF
+if [ "$Conf" = "" ]; then
+    test -f /etc/firewall || echo "No configuration!" && exit 1
+    . /etc/firewall
+else
+    . $Conf
+fi
 
-_CONF() {
-  iptables -A INPUT -p $1 --dport $2 -s $3 -j ACCEPT
+InputAccept() {
+	iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$3" -j ACCEPT
+#	echo "INP - $*"
 }
 
-iptables -F
-iptables --policy INPUT REJECT
-iptables --policy FORWARD REJECT
-iptables -A INPUT -p icmp --icmp-type echo-reply -j ACCEPT
-iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+Forward() {
+	iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$3"
+#	echo "FWD - $*"
+}
+
+ResetRules() {
+	if [ "$1" != "" ]; then
+		iptables -t "$1" -F
+	else
+		TableList="filter nat mangle raw security "
+		for Table in `echo $TableList`; do
+			iptables -t "$Table" -F
+		done
+	fi
+	iptables -F
+}
+
+ResetRules
+
+iptables -A INPUT -p icmp -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 
-while read LINE; do
+while read Var; do
+	Value="`echo $Var | cut -d= -f2`"
 
-  VAR="`echo $LINE | cut -d\= -f2`"
-  NAME="`echo $LINE | cut -d\= -f1`"
-  TY="`echo $NAME | cut -d\_ -f1"
-  PORT="`echo $NAME | cut -d\_ -f2`"
-  
-  _CONF "$TY" "$PORT" "$VAR"
+	Tmp="`echo $Var | cut -d= -f1`"
 
+	Rule="`echo $Tmp | cut -d_ -f1`"
+	Interface="`echo $Tmp | cut -d_ -f2`"
+	Type="`echo $Tmp | cut -d_ -f3`"
+	Port="`echo $Tmp | cut -d_ -f4`"
+
+	if [ "$Rule" = "inp" ]; then
+		if [ "`echo $Port | grep x`" != "" ]; then
+			InputAccept "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
+#			echo "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
+		else
+			InputAccept "$Type" "$Port" "$Value" "$Interface"
+#			echo "$Type" "$Port" "$Value" "$Interface"
+		fi
+    fi
+	if [ "$Rule" = "fwd" ]; then
+		if [ "`echo $Port | grep x`" != "" ]; then
+			Forward "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
+#			echo "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
+		else
+			Forward "$Type" "$Port" "$Value" "$Interface"
+#			echo "$Type" "$Port" "$Value" "$Interface"
+		fi
+
+	fi
 done < <(env | grep -E "udp|tcp")
+
+iptables -A INPUT -p udp --sport 1:1024 -j ACCEPT
+iptables -A INPUT -p tcp --sport 1:1024 -j ACCEPT
+iptables -A INPUT -j REJECT
+
+exit 0

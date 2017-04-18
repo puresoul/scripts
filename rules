@@ -1,0 +1,2 @@
+export inp_eth0_tcp_80="192.168.0.1"
+export fwd_eth0_tcp_80x90="192.168.0.1"
