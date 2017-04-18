@@ -10,7 +10,7 @@ else
 fi
 
 InputAccept() {
-    if [ "`echo "$3" | wc -w" != 1 ]; then
+    if [ "`echo "$3" | wc -w`" != 1 ]; then
 	for Var in `echo $3`; do
 	    iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$Var" -j ACCEPT
 	done
@@ -21,7 +21,7 @@ InputAccept() {
 }
 
 Forward() {
-    if [ "`echo "$3" | wc -w" != 1 ]; then
+    if [ "`echo "$3" | wc -w`" != 1 ]; then
 	for Var in `echo $3`; do
 	    iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$Var"
 	done
