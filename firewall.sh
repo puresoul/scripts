@@ -2,6 +2,8 @@
 
 Conf="$1"
 
+InputRange="1:58000"
+
 if [ "$Conf" = "" ]; then
     test -f /etc/firewall || echo "No configuration!" && exit 1
     . /etc/firewall
@@ -79,8 +81,8 @@ while read Var; do
 	fi
 done < <(env | grep -E "udp|tcp")
 
-iptables -A INPUT -p udp --sport 1:1024 -j ACCEPT
-iptables -A INPUT -p tcp --sport 1:1024 -j ACCEPT
+iptables -A INPUT -p udp --sport "$InputRange" -j ACCEPT
+iptables -A INPUT -p tcp --sport "$InputRange" -j ACCEPT
 iptables -A INPUT -j REJECT
 
 exit 0
