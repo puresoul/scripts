@@ -4,9 +4,13 @@ Conf="$1"
 
 InputRange="1:58000"
 
-if [ "$Conf" = "" ]; then
-    test -f /etc/firewall || echo "No configuration!" && exit 1
+test -e /etc/firewall
+
+if [ "$?" = "0" ]; then
     . /etc/firewall
+elif [ "$?" != "0" ]; then
+    echo "No configuration! Put config at /etc/firewall or path to file as first argument...."
+    exit 1
 else
     . $Conf
 fi
