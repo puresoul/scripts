@@ -2,17 +2,12 @@
 
 Conf="$1"
 
-InputRange="1:58000"
-
 test -e /etc/firewall
 
-if [ "$?" = "0" ]; then
-    . /etc/firewall
-elif [ "$?" != "0" ]; then
-    echo "No configuration! Put config at /etc/firewall or path to file as first argument...."
-    exit 1
-else
+if [ "$?" != "0" ]; then
     . $Conf
+else
+    . /etc/firewall
 fi
 
 InputAccept() {
@@ -85,8 +80,9 @@ while read Var; do
 	fi
 done < <(env | grep -E "udp|tcp")
 
-iptables -A INPUT -p udp --sport "$InputRange" -j ACCEPT
-iptables -A INPUT -p tcp --sport "$InputRange" -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -j REJECT
+
+env
 
 exit 0
