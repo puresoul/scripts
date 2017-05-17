@@ -1,37 +1,69 @@
 #!/bin/bash
 
-# Uzivatel pod kterym je klic
+# user to connect
 
-USER="user"
+USER="adams"
 
-# Cesta k klici
+# ssh-key to use
 
 KEY="./id_rsa"
 
-# Seznam serveru
+# server list
 
-LIST="s1 s2 s3"
+OUTLIST=""
+INLIST=""
+ALLLIST="$OUTLIST $INLIST"
 
-# Overeni ze byl zadan prikaz
+# simple heredoc file hack what we run with sudo
 
-if [ "$1" == "" ]; then
-    echo "\$0 \"command\" \$1 sudo pass"
+CreateCommand() {
+cat > ./cmd <<EOF
+#!/bin/bash
+`echo $1`
+EOF
+chmod 777 ./cmd
+}
+
+if [[ "$1" == ""  || "$1" == "-h" || "$1" == "--help" ]]; then
+    echo "If sudo has nopasswd setup"
+    echo "./$0 'command'"
+    echo "to scp file over user home"
+    echo "./$0 'command' 'file'"
     echo "or"
-    echo "\$0 \"-\" \"command\" \$1 sudo pass"
-    exit
+    echo "If sudo needs user password"
+    echo "./$0 'command' 'sudo pass'"
+    echo "to scp file over user home"
+    echo "./$0 'command' 'file' 'sudo pass'"
+    exit 0
 else
-
-    for SERVER in $(echo $LIST); do
-	if [ "$1" = "-" ]; then
-	    ssh -t -i $KEY $USER@$SERVER "echo '#!/bin/bash' > /tmp/cmd; echo \"$2\" >> /tmp/cmd; chmod 777 /tmp/cmd"
-	    ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd <<< '$3'"
-	    ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd"
+    CreateCommand "$1"
+    for SERVER in $(echo $ALLLIST); do
+	if [ "$2" = "-q" ]; then
+	    scp -i $KEY ./cmd $USER@$SERVER:/tmp/cmd &> /dev/null
+	    ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd" 2>&1
+	    ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd" &> /dev/null
+	elif [ -f "$2" ]; then
+	    if [ "$3" != "" ]; then
+		scp -i $KEY ./"$2" $USER@$SERVER:~/ &> /dev/null
+		scp -i $KEY ./cmd $USER@$SERVER:/tmp/cmd &> /dev/null
+		ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd <<< '$2'" 2>&1
+		ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd" &> /dev/null
+	    else
+		scp -i $KEY ./"$2" $USER@$SERVER:~/ &> /dev/null
+		scp -i $KEY ./cmd $USER@$SERVER:/tmp/cmd &> /dev/null
+	        ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd" 2>&1
+	        ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd" &> /dev/null
+	    fi
+	elif [ "$2" != "" ]; then
+	    printf "COMMAND FOR SERVER $SERVER:\n\n"
+	    scp -i $KEY ./cmd $USER@$SERVER:/tmp/cmd &> /dev/null
+	    ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd <<< '$2'" 2>&1
+	    ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd" &> /dev/null
 	else
 	    printf "COMMAND FOR SERVER $SERVER:\n\n"
-	    ssh -t -i $KEY $USER@$SERVER "sudo -S $1 <<< \"$2\""
-	    printf "\n\nDISCONECT FROM $SERVER\n"
+	    scp -i $KEY ./cmd $USER@$SERVER:/tmp/cmd &> /dev/null
+	    ssh -t -i $KEY $USER@$SERVER "sudo -S /tmp/cmd" 2>&1
+	    ssh -t -i $KEY $USER@$SERVER "rm /tmp/cmd" &> /dev/null
 	fi
-	read ANY; test "$ANY" && clear
     done
-
 fi
