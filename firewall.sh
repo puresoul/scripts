@@ -1,8 +1,33 @@
 #!/bin/bash
 
+Help() {
+	cat <<EOF
+Iptable shell firewall wrapper
+
+script that import varibles from /etc/firewall file and create rules from them...
+
+Notation:
+
+[inp|fwd]_[Network interface]_[tcp|udp]_[Single port|0x1 Multiport]="Ip addres|List of ip addresses|Cidr Subnet"
+
+Example:
+
+export inp_eth0_tcp_3306="81.0.213.147"
+export inp_eth0_tcp_22="90.176.62.151 217.16.185.211"
+export inp_eth0_tcp_80="90.176.62.151 217.16.185.211"
+export inp_eth0_tcp_1234="0.0.0.0/0"
+
+EOF
+}
+
 Conf="$1"
 
 test -e /etc/firewall
+
+if [[ "$1" = "-h" || "$1" = "--help" ]]; then
+	Help
+	exit 0
+fi
 
 if [ "$?" != "0" ]; then
     . $Conf
@@ -62,19 +87,15 @@ while read Var; do
 	if [ "$Rule" = "inp" ]; then
 		if [ "`echo $Port | grep x`" != "" ]; then
 			InputAccept "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
-#			echo "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
 		else
 			InputAccept "$Type" "$Port" "$Value" "$Interface"
-#			echo "$Type" "$Port" "$Value" "$Interface"
 		fi
     fi
 	if [ "$Rule" = "fwd" ]; then
 		if [ "`echo $Port | grep x`" != "" ]; then
 			Forward "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
-#			echo "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
 		else
 			Forward "$Type" "$Port" "$Value" "$Interface"
-#			echo "$Type" "$Port" "$Value" "$Interface"
 		fi
 
 	fi
@@ -82,7 +103,5 @@ done < <(env | grep -E "udp|tcp")
 
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -j REJECT
-
-env
 
 exit 0
