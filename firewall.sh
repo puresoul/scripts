@@ -60,9 +60,7 @@ OutputAccept() {
 
 Forward() {
     if [ "`echo "$3" | wc -w`" != 1 ]; then
-	for Var in `echo $3`; do
-	    iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$Var"
-	done
+	echo "Not possible!"
     else
 	iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$3"
     fi
@@ -112,9 +110,9 @@ while read Var; do
 	fi
 	if [ "$Rule" = "fwd" ]; then
 		if [ "`echo $Port | grep x`" != "" ]; then
-			Forward "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
+			Forward "$Type" "`echo $Port | tr x :`" "$Value:`echo $Port | tr x -`" "$Interface"
 		else
-			Forward "$Type" "$Port" "$Value" "$Interface"
+			Forward "$Type" "$Port" "$Value:${Port}" "$Interface"
 		fi
 
 	fi
