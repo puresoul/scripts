@@ -46,6 +46,18 @@ InputAccept() {
 #	echo "INP - $*"
 }
 
+OutputAccept() {
+    if [ "`echo "$3" | wc -w`" != 1 ]; then
+	for Var in `echo $3`; do
+	    iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$Var" -j ACCEPT
+	done
+    else
+	iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$3" -j ACCEPT
+    fi
+#	echo "OUT - $*"
+}
+
+
 Forward() {
     if [ "`echo "$3" | wc -w`" != 1 ]; then
 	for Var in `echo $3`; do
@@ -90,7 +102,14 @@ while read Var; do
 		else
 			InputAccept "$Type" "$Port" "$Value" "$Interface"
 		fi
-    fi
+	fi
+	if [ "$Rule" = "out" ]; then
+		if [ "`echo $Port | grep x`" != "" ]; then
+			OutputAccept "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
+		else
+			OutputAccept "$Type" "$Port" "$Value" "$Interface"
+		fi
+	fi
 	if [ "$Rule" = "fwd" ]; then
 		if [ "`echo $Port | grep x`" != "" ]; then
 			Forward "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
