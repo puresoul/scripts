@@ -13,19 +13,20 @@ var Ok int = 1
 var Var int = 1
 for Char < len(Out) {
     if Out[Char-1:Char] == In[Oth-1:Oth] {
-	Oth++
-	Ok++
+		Oth++
+		Ok++
     } else {
-	Oth = 1
-	Ok = 1
+		Oth = 1
+		Ok = 1
     }
     if Ok == len(In) {
-	Var = Char+1
-	Oth = 1
-	Ok = 1
-	break
+		Var = Char+1
+		Oth = 1
+		Ok = 1
+		break
     }
     Char++
+	fmt.Print(string(Out[Char]),"[",Char,"]")
 }
 return Var
 }
@@ -49,6 +50,8 @@ var StrSt int
 StrSt = Find(Out,StartArg)
 StrEn = Find(Out,EndArg)-len(EndArg)
 
-fmt.Print(Out[StrSt:StrEn])
+fmt.Println(StrSt,StrEn)
+
+//fmt.Print(Out[])
 }
 

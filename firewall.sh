@@ -2,21 +2,28 @@
 
 Help() {
 	cat <<EOF
-Iptable shell firewall wrapper
+Iptables shell firewall wrapper
 
 script that import varibles from /etc/firewall file and create rules from them...
 
 Notation:
 
+1.        2.                  3.        4.                          5.
 [inp|fwd]_[Network interface]_[tcp|udp]_[Single port|0x1 Multiport]="Ip addres|List of ip addresses|Cidr Subnet"
 
-Example:
+1. Iptables chain
+2. Name of network interface
+3. Port type
+4. Number of port or ports range (1024x2000 means from port 1024 to port 2000)
+5. Ip addres or CIDR subnet
 
+Example configuration:
+
+#      1.  2.   3.  4.   5.
 export inp_eth0_tcp_3306="81.0.213.147"
 export inp_eth0_tcp_22="90.176.62.151 217.16.185.211"
 export inp_eth0_tcp_80="90.176.62.151 217.16.185.211"
 export inp_eth0_tcp_1234="0.0.0.0/0"
-
 EOF
 }
 
