@@ -19,28 +19,21 @@ Notation:
 
 Example configuration:
 
+OutIfce=""
 #      1.  2.   3.  4.   5.
-export inp_eth0_tcp_3306="81.0.213.147"
-export inp_eth0_tcp_22="90.176.62.151 217.16.185.211"
-export inp_eth0_tcp_80="90.176.62.151 217.16.185.211"
-export inp_eth0_tcp_1234="0.0.0.0/0"
+inp_eth0_tcp_80="0.0.0.0/0"
+inp_eth0_tcp_1024x2000="0.0.0.0/0"
 EOF
 }
 
-Conf="$1"
 
-test -e /etc/firewall
-
-if [[ "$1" = "-h" || "$1" = "--help" ]]; then
-	Help
-	exit 0
-fi
-
-if [ "$?" != "0" ]; then
-    . $Conf
-else
-    . /etc/firewall
-fi
+LoadConfig() {
+    buf=""
+    while read Line; do
+	buf="$buf export ${Line};"
+    done < <(grep -v '#' "$1")
+    echo "$buf"
+}
 
 InputAccept() {
     if [ "`echo "$3" | wc -w`" != 1 ]; then
@@ -86,9 +79,27 @@ ResetRules() {
 	iptables -F
 }
 
+Conf="$1"
+
+test -e /etc/firewall
+
+if [[ "$1" = "-h" || "$1" = "--help" ]]; then
+	Help
+	exit 0
+fi
+
+if [ "$?" != "0" ]; then
+    Vars="`LoadConfig $Conf`"
+    eval "$Vars"
+else
+    Vars="`LoadConfig /etc/firewall`"
+    eval "$Vars"
+fi
+
 ResetRules
 
 iptables -A INPUT -p icmp -j ACCEPT
+
 iptables -A INPUT -i lo -j ACCEPT
 
 while read Var; do
@@ -125,7 +136,7 @@ while read Var; do
 	fi
 done < <(env | grep -E "udp|tcp")
 
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -j REJECT
+iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -i "$OutIfce" -j REJECT
 
 exit 0
