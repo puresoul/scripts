@@ -1,75 +1,76 @@
 package main
 
 import (
-    "fmt"
-    "golang.org/x/net/html"
-    "net/http"
-    "os"
-    "io/ioutil"
+	"fmt"
+	"golang.org/x/net/html"
+	"net/http"
+	"os"
+	"io/ioutil"
 	"regexp"
 	"strings"
 	"strconv"
+	"github.com/grokify/html-strip-tags-go" 
 )
 
 
 // Extract all http** links from a given webpage
 func crawl(url string, ch chan string, chFinished chan bool) {
-    resp, err := http.Get(url)
+	resp, err := http.Get(url)
 
-    defer func() {
+	defer func() {
 	// Notify that we're done after this function
 	chFinished <- true
-    }()
+	}()
 
-    if err != nil {
+	if err != nil {
 	fmt.Println("ERROR: Failed to crawl \"" + url + "\"")
 	return
-    }
+	}
 
-    b := resp.Body
-    defer b.Close() // close Body when the function returns
+	b := resp.Body
+	defer b.Close() // close Body when the function returns
 
-    z := html.NewTokenizer(b)
+	z := html.NewTokenizer(b)
 
-    for {
+	for {
 	tt := z.Next()
 
 	switch {
 	case tt == html.ErrorToken:
-	    // End of the document, we're done
-	    return
+		// End of the document, we're done
+		return
 	case tt == html.StartTagToken:
-	    t := z.Token()
+		t := z.Token()
 
-	    // Check if the token is an <a> tag
-	    isAnchor := t.Data == "a"
-	    if !isAnchor {		continue
-	    }
-
-	    var url string
-
-	    // Extract the href value, if there is one
-	    for _, a := range t.Attr {
-		if a.Key == "href" {
-		    url = a.Val
-		    break
+		// Check if the token is an <a> tag
+		isAnchor := t.Data == "a"
+		if !isAnchor {		continue
 		}
-	    }
 
-	    if len(string(url)) > 8 {
+		var url string
+
+		// Extract the href value, if there is one
+		for _, a := range t.Attr {
+		if a.Key == "href" {
+			url = a.Val
+			break
+		}
+		}
+
+		if len(string(url)) > 8 {
 			if string(url)[:7] == "/detail" {
 				ch <- strings.Replace(url, "#akce", "", -1)
 			}
-	    }
+		}
 	}
-    }
+	}
 }
 
 func getBody(url string) []string {
 	var list []string
-    resp, _ := http.Get(url)
-    b := resp.Body
-    defer b.Close() // close Body when the function returns
+	resp, _ := http.Get(url)
+	b := resp.Body
+	defer b.Close() // close Body when the function returns
 
 	body, _ := ioutil.ReadAll(b)
 	add := regexp.MustCompile("<div itemprop=\"(streetAddress|postalCode)\">(.|\n)*?</div>")
@@ -78,31 +79,31 @@ func getBody(url string) []string {
 	address := add.FindAllString(string(body), -1)
 	telephone := tel.FindAllString(string(body), -1)
 	title := tit.FindAllString(string(body), -1)
-				
+	
 	for _, titl := range title {
 		if strings.Contains(titl, "Katalog firem a institucí") {
 			continue
 		}
-		list = append(list, titl)
+		list = append(list, strip.StripTags(strings.Replace(titl, " • Firmy.cz", "", -1)))
 		break
 	}
-				
+	
 	for _, adrs := range address {
-		list = append(list, adrs)
+		list = append(list, strip.StripTags(adrs))
 		break
 	}
 				
 	for _, tele := range telephone {
-		list = append(list, tele)
+		list = append(list, strip.StripTags(tele))
 	}
 	
 	return list
 }
 
-func getMax(url string) string {
-    resp, _ := http.Get(url)
-    b := resp.Body
-    defer b.Close() // close Body when the function returns
+func getMax(url string) int {
+	resp, _ := http.Get(url)
+	b := resp.Body
+	defer b.Close() // close Body when the function returns
 
 	body, _ := ioutil.ReadAll(b)
 	ma := regexp.MustCompile("<strong>1.*?</strong>")
@@ -114,8 +115,10 @@ func getMax(url string) string {
 	}
 
 	t := strings.Split(i, "–")
-	x := strings.Split(t[1], "<")
-	return x[0]
+	y := strings.Split(t[1], "<")
+	x, _ := strconv.Atoi(y[0])
+
+	return x
 }
 
 func getUrls(seedUrls []string) (map[string]bool) {
@@ -137,27 +140,27 @@ func getUrls(seedUrls []string) (map[string]bool) {
 		}
 	}
 
-    close(chUrls)
+	close(chUrls)
 	return foundUrls
 }
 
+func getMax(url string) int {
+
 func main() {
 
-    fragment := "?_escaped_fragment_=1"
+	fragment := "?_escaped_fragment_=1"
 	var seedUrls []string
 
 	arg := os.Args[1:]
 	seedUrls = append(seedUrls, "https://www.firmy.cz/"+arg[0]+fragment+"&page=1")
 
-	max := getMax("https://www.firmy.cz/"+arg[0]+fragment)
-	ax, _ := strconv.Atoi(max)
+	max := getMax("https://www.firmy.cz/"+arg[0]+fragment) 
 
-	ax = 2
-
+	max = 2
 	c := 1
 	seedUrls = nil
 
-	for c < ax {
+	for c < max {
 		seedUrls = append(seedUrls, "https://www.firmy.cz/"+arg[0]+fragment+"&page="+strconv.Itoa(c))
 		c++
 	}
@@ -166,13 +169,9 @@ func main() {
 
 	for url, _ := range foundUrls {
 		node := getBody("https://www.firmy.cz"+url+fragment)
-		y := []int{0, 1, 2} 
-		for x := range(y) {
-			fmt.Println(node[x])
-		}
+		//y := []int{0, 1, 2} 
+		//for x := range(y) {
+			fmt.Println(node)
+		//}
 	}
-	
-
-
-
 }
