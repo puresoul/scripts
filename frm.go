@@ -14,7 +14,7 @@ import (
 
 type Contact struct {
 	Name string
-	Address string
+	Address []string
 	Telephone []string
 }
 
@@ -173,20 +173,23 @@ func main() {
 	for url := range foundUrls {
 		tmp := getBody("https://www.firmy.cz"+url+fragment)
 		if tmp != nil {
-			var nam,adr string
-			var num []string
+			var nam string
+			var num,adr []string
 			i := 0
 			for i != len(tmp) {
 				if i >= 2 {
-					num = append(num, "+",tmp[i])
+					num = append(num, tmp[i])
 					i++
 					continue
 				}
-				if i == 1 {
-					adr = tmp[i]
+				if ( i > 0) {
+					adr = append(adr, tmp[i])
 				}
 				if i == 0 {
-					nam = tmp[i]
+					t := strings.Split(tmp[i], "(")
+					y := strings.Split(t[1], ")")
+					nam = strings.TrimSpace(t[0])
+					adr = append(adr, y[0])
 				}
 				num = nil
 				i++
