@@ -12,6 +12,11 @@ import (
 	"github.com/grokify/html-strip-tags-go" 
 )
 
+type Contact struct {
+	Name string
+	Address string
+	Telephone []string
+}
 
 // Extract all http** links from a given webpage
 func crawl(url string, ch chan string, chFinished chan bool) {
@@ -144,9 +149,9 @@ func getUrls(seedUrls []string) (map[string]bool) {
 	return foundUrls
 }
 
-func getMax(url string) int {
-
 func main() {
+
+	var node []Contact
 
 	fragment := "?_escaped_fragment_=1"
 	var seedUrls []string
@@ -154,24 +159,42 @@ func main() {
 	arg := os.Args[1:]
 	seedUrls = append(seedUrls, "https://www.firmy.cz/"+arg[0]+fragment+"&page=1")
 
-	max := getMax("https://www.firmy.cz/"+arg[0]+fragment) 
-
-	max = 2
 	c := 1
 	seedUrls = nil
 
-	for c < max {
+	for c < getMax("https://www.firmy.cz/"+arg[0]+fragment)  {
 		seedUrls = append(seedUrls, "https://www.firmy.cz/"+arg[0]+fragment+"&page="+strconv.Itoa(c))
 		c++
+		break
 	}
 
 	foundUrls := getUrls(seedUrls)
 
-	for url, _ := range foundUrls {
-		node := getBody("https://www.firmy.cz"+url+fragment)
-		//y := []int{0, 1, 2} 
-		//for x := range(y) {
-			fmt.Println(node)
-		//}
+	for url := range foundUrls {
+		tmp := getBody("https://www.firmy.cz"+url+fragment)
+		if tmp != nil {
+			var nam,adr string
+			var num []string
+			i := 0
+			for i != len(tmp) {
+				if i >= 2 {
+					num = append(num, "+",tmp[i])
+					i++
+					continue
+				}
+				if i == 1 {
+					adr = tmp[i]
+				}
+				if i == 0 {
+					nam = tmp[i]
+				}
+				num = nil
+				i++
+			}
+			node = append(node, Contact{Name: nam, Address: adr, Telephone: num})
+		}
 	}
+
+	fmt.Println(node)
+
 }
