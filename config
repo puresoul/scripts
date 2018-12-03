@@ -39,23 +39,12 @@ bindsym $mod+d exec dmenu_run
 # installed.
 # bindsym $mod+d exec --no-startup-id i3-dmenu-desktop
 
-# change focus
-bindsym $mod+j focus left
-bindsym $mod+k focus down
-bindsym $mod+l focus up
-bindsym $mod+semicolon focus right
-
 # alternatively, you can use the cursor keys:
 bindsym $mod+Left focus left
 bindsym $mod+Down focus down
 bindsym $mod+Up focus up
 bindsym $mod+Right focus right
 
-# move focused window
-bindsym $mod+Shift+j move left
-bindsym $mod+Shift+k move down
-bindsym $mod+Shift+l move up
-bindsym $mod+Shift+semicolon move right
 
 # alternatively, you can use the cursor keys:
 bindsym $mod+Shift+Left move left
@@ -120,6 +109,12 @@ bindsym $mod+Shift+r restart
 # exit i3 (logs you out of your X session)
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcut. Do you really want to exit i3? This will end your X session.' -b 'Yes, exit i3' 'i3-msg exit'"
 
+bindsym $mod+Pause exec ps ux --no-headers --sort=-%cpu | dmenu -l 20 | awk '{print $2}' | xargs kill
+
+bindsym $mod+Print exec import -window 0x1600077 ~/screenshot.jpg
+
+bindsym $mod+l exec i3lock -i /home/user/bsod.png
+
 force_xinerama yes
 focus_follows_mouse no
 
@@ -133,7 +128,7 @@ mode "resize" {
         # Pressing down will grow the window’s height.
         bindsym j resize shrink width 10 px or 10 ppt
         bindsym k resize grow height 10 px or 10 ppt
-        bindsym l resize shrink height 10 px or 10 ppt
+        bindsym h resize shrink height 10 px or 10 ppt
         bindsym semicolon resize grow width 10 px or 10 ppt
 
         # same bindings, but for the arrow keys
@@ -162,12 +157,15 @@ workspace 2 output xinerama-0
 workspace 4 output xinerama-0
 
 assign [class="Terminator"] 1
-assign [class="Waterfox"] 2
+assign [class="Firefox-esr"] 2
 assign [class="Thunderbird"] 4
 assign [class="Skype"] 3
 assign [class="Pidgin"] 3
 assign [class="ViberPC"] 3
 
+#input "1121:19727:PixArt_USB_Optical"{
+#	accel_profile flat
+#}
 
-exec i3-msg 'exec terminator; exec waterfox; exec thunderbird; exec skype; exec pidgin; exec viber;'
+exec i3-msg 'exec terminator; exec firefox; exec thunderbird; exec skype; exec pidgin; exec Viber;'
 
