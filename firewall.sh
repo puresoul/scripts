@@ -4,7 +4,9 @@ Help() {
 	cat <<EOF
 Iptables shell firewall wrapper
 
-script that import varibles from /etc/firewall file and create rules from them...
+reads rules from /etc/firewall file and translate them into iptables commands...
+
+Script is reading /etc/hosts.deny and rejecting every ip writen there.
 
 Notation:
 
@@ -19,51 +21,63 @@ Notation:
 
 Example configuration:
 
-OutIfce=""
+# List of interfaces to block traffic on
+OutIfce="eth0"
 #      1.  2.   3.  4.   5.
 inp_eth0_tcp_80="0.0.0.0/0"
 inp_eth0_tcp_1024x2000="0.0.0.0/0"
 EOF
 }
 
+ErrorTest() {
+	if [ "$1" != "0" ]; then
+		echo "Problem in configuration!"
+		exit 0
+	fi
+}
 
 LoadConfig() {
-    buf=""
-    while read Line; do
+	buf=""
+	while read Line; do
 	buf="$buf export ${Line};"
-    done < <(grep -v '#' "$1")
-    echo "$buf"
+	done < <(grep -v '#' "$1")
+	echo "$buf"
 }
 
 InputAccept() {
-    if [ "`echo "$3" | wc -w`" != 1 ]; then
-	for Var in `echo $3`; do
-	    iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$Var" -j ACCEPT
-	done
-    else
-	iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$3" -j ACCEPT
-    fi
+	if [ "`echo "$3" | wc -w`" != 1 ]; then
+		for Var in `echo $3`; do
+			iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$Var" -j ACCEPT
+			ErrorTest "$?"
+		done
+	else
+		iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$3" -j ACCEPT
+		ErrorTest "$?"
+	fi
 #	echo "INP - $*"
 }
 
 OutputAccept() {
-    if [ "`echo "$3" | wc -w`" != 1 ]; then
-	for Var in `echo $3`; do
-	    iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$Var" -j ACCEPT
-	done
-    else
-	iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$3" -j ACCEPT
-    fi
+	if [ "`echo "$3" | wc -w`" != 1 ]; then
+		for Var in `echo $3`; do
+			iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$Var" -j ACCEPT
+			ErrorTest "$?"
+		done
+	else
+		iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$3" -j ACCEPT
+		ErrorTest "$?"
+	fi
 #	echo "OUT - $*"
 }
 
 
 Forward() {
-    if [ "`echo "$3" | wc -w`" != 1 ]; then
-	echo "Not possible!"
-    else
-	iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$3"
-    fi
+	if [ "`echo "$3" | wc -w`" != 1 ]; then
+		echo "Not possible!"
+	else
+		iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$3"
+		ErrorTest "$?"
+	fi
 #	echo "FWD - $*"
 }
 
@@ -81,7 +95,7 @@ ResetRules() {
 
 Conf="$1"
 
-test -e /etc/firewall
+test -e /etc/firewall || echo "No configuration file at /etc/firewall"; exit 1
 
 if [[ "$1" = "-h" || "$1" = "--help" ]]; then
 	Help
@@ -89,11 +103,11 @@ if [[ "$1" = "-h" || "$1" = "--help" ]]; then
 fi
 
 if [ "$?" != "0" ]; then
-    Vars="`LoadConfig $Conf`"
-    eval "$Vars"
+	Vars="`LoadConfig $Conf`"
+	eval "$Vars"
 else
-    Vars="`LoadConfig /etc/firewall`"
-    eval "$Vars"
+	Vars="`LoadConfig /etc/firewall`"
+	eval "$Vars"
 fi
 
 ResetRules
@@ -101,6 +115,10 @@ ResetRules
 iptables -A INPUT -p icmp -j ACCEPT
 
 iptables -A INPUT -i lo -j ACCEPT
+
+while read Var; do
+	iptables -A INPUT -i "$OutIfce" -s "$Var" -j REJECT
+done < <(grep -v "#" /etc/hosts.deny)
 
 while read Var; do
 	Value="`echo $Var | cut -d= -f2`"
@@ -136,7 +154,9 @@ while read Var; do
 	fi
 done < <(env | grep -E "udp|tcp")
 
-iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -i "$OutIfce" -j REJECT
+for Var in `echo $OutIfce`; do
+	iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A INPUT -i "$OutIfce" -j REJECT
+done
 
 exit 0
