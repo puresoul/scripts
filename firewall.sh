@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 Help() {
 	cat <<EOF
@@ -95,12 +95,12 @@ ResetRules() {
 
 Conf="$1"
 
-test -e /etc/firewall || echo "No configuration file at /etc/firewall"; exit 1
-
 if [[ "$1" = "-h" || "$1" = "--help" ]]; then
 	Help
 	exit 0
 fi
+
+test -e /etc/firewall || ( echo "No configuration file at /etc/firewall"; exit 1 )
 
 if [ "$?" != "0" ]; then
 	Vars="`LoadConfig $Conf`"
@@ -116,9 +116,11 @@ iptables -A INPUT -p icmp -j ACCEPT
 
 iptables -A INPUT -i lo -j ACCEPT
 
-while read Var; do
-	iptables -A INPUT -i "$OutIfce" -s "$Var" -j REJECT
-done < <(grep -v "#" /etc/hosts.deny)
+if [ "`grep -v "#" /etc/hosts.deny`" != "" ]; then
+	while read Var; do
+		iptables -A INPUT -i "$OutIfce" -s "$Var" -j REJECT
+	done < <(grep -v "#" /etc/hosts.deny)
+fi
 
 while read Var; do
 	Value="`echo $Var | cut -d= -f2`"
