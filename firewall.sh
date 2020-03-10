@@ -156,6 +156,12 @@ while read Var; do
 	fi
 done < <(env | grep -E "udp|tcp")
 
+fce="`cat /proc/net/dev | grep : | grep -v lo `"
+
+if [[ "`echo $fce | wc -l`" == "1" && "$OutIfce" == "" ]]; then
+    OutIfce="`echo $fce | cut -d: -f1 | tr -d ' '`"
+fi
+
 for Var in `echo $OutIfce`; do
 	iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
 	iptables -A INPUT -i "$OutIfce" -j REJECT
