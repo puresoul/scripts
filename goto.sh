@@ -3,19 +3,20 @@
 # BAT / CMD goto function
 goto()
 {
-    label=$1
-    if [[ "$2" == "end" ]]; then
-	cmd=$(sed "/^: *${label}/,/^: end *${label}/!d" $0)
+    label=($*)
+    if [[ "${label[0]}" == "end" ]]; then
+	cmd=$(sed "/^:[[:blank:]]*${label[1]}/,/^:[[:blank:]]*${label[*]}/!d" $0)
     else
-	cmd=$(sed -n "/^:[[:blank:]][[:blank:]]*${label}/{:a;n;p;ba};" $0)
+	cmd=$(sed -n "/^:[[:blank:]]*${label[0]}/{:a;n;p;ba};" $0)
     fi
+    echo $cmd
     eval "$cmd"
     exit
 }
 
-# Just for the heck of it: how to create a variable where to jump to:
+# Just for the heck of it: how to call where to jump to ("b" would go from ": b" and "end b" wold go form ": b" to ": end b"):
 if [ "$1" != "" ]; then
-    goto "${1:-"$1"}" $2
+    goto "$*"
 fi
 
 : a
