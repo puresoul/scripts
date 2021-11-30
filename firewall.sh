@@ -23,6 +23,8 @@ Example configuration:
 
 # List of interfaces to block traffic on
 OutIfce="eth0"
+# Define interface only if masquerade and probably dnat is desired
+InIfce="eth1"
 #      1.  2.   3.  4.   5.
 inp_eth0_tcp_80="0.0.0.0/0"
 inp_eth0_tcp_1024x2000="0.0.0.0/0"
@@ -160,11 +162,21 @@ fce="`cat /proc/net/dev | grep : | grep -v lo `"
 
 if [[ "`echo $fce | wc -l`" == "1" && "$OutIfce" == "" ]]; then
     OutIfce="`echo $fce | cut -d: -f1 | tr -d ' '`"
+else
+    echo "You got more than one network adapters, you must define OutIfce (internet)!"
+    exit 1
 fi
 
 for Var in `echo $OutIfce`; do
-	iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
-	iptables -A INPUT -i "$OutIfce" -j REJECT
+    iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
+    iptables -A INPUT -i "$OutIfce" -j REJECT
+done
+
+for Var in `echo $InIfce`; do
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+    iptables -A FORWARD -o $OutIfce -i $InIfce -m conntrack --ctstate NEW -j ACCEPT
+    iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    iptables -t nat -A POSTROUTING -o $OutIfce -j MASQUERADE
 done
 
 exit 0
