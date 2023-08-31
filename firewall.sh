@@ -1,4 +1,5 @@
-#!/bin/bash -x
+root@dolf:/usr/local/bin# cat firewall.sh 
+#!/bin/bash
 
 Help() {
 	cat <<EOF
@@ -22,12 +23,12 @@ Notation:
 Example configuration:
 
 # List of interfaces to block traffic on
-OutIfce="eth0"
-# Define interface only if masquerade and probably dnat is desired
-InIfce="eth1"
+wan="eth0"
+lan="eth1"
 #      1.  2.   3.  4.   5.
 inp_eth0_tcp_80="0.0.0.0/0"
 inp_eth0_tcp_1024x2000="0.0.0.0/0"
+fwd_eth0_tcp_80="10.0.0.1"
 EOF
 }
 
@@ -47,40 +48,67 @@ LoadConfig() {
 }
 
 InputAccept() {
-	if [ "`echo "$3" | wc -w`" != 1 ]; then
-		for Var in `echo $3`; do
-			iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$Var" -j ACCEPT
+	interface="$1"
+	type="$2"
+	port="${3//x/:}"
+	value="${4//\"/}"
+
+	if [ "$(echo "$value" | wc -w)" != 1 ]; then
+		for var in $value; do
+			iptables -A INPUT -i "$interface" -p "$type" --dport "$port" -s "$var" -j ACCEPT
 			ErrorTest "$?"
 		done
 	else
-		iptables -A INPUT -i "$4" -p "$1" --dport "$2" -s "$3" -j ACCEPT
+		iptables -A INPUT -i "$interface" -p "$type" --dport "$port" -s "$value" -j ACCEPT
 		ErrorTest "$?"
 	fi
-#	echo "INP - $*"
 }
 
 OutputAccept() {
-	if [ "`echo "$3" | wc -w`" != 1 ]; then
-		for Var in `echo $3`; do
-			iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$Var" -j ACCEPT
+	interface="$1"
+	type="$2"
+	port="${3//x/:}"
+	value="${4//\"/}"
+
+	if [ "$(echo "$value" | wc -w)" != 1 ]; then
+		for Var in $value; do
+			iptables -A OUTPUT -o "$interface" -p "$type" --sport "$port" -s "$Var" -j ACCEPT
 			ErrorTest "$?"
 		done
 	else
-		iptables -A OUTPUT -o "$4" -p "$1" --sport "$2" -s "$3" -j ACCEPT
+		iptables -A OUTPUT -o "$interface" -p "$type" --sport "$port" -s "$value" -j ACCEPT
 		ErrorTest "$?"
 	fi
-#	echo "OUT - $*"
 }
 
-
 Forward() {
-	if [ "`echo "$3" | wc -w`" != 1 ]; then
-		echo "Not possible!"
+	interface="$1"
+	type="$2"
+	port="${3//x/:}"
+	value="${4//\"/}"
+	if [ "$(echo "$3" | wc -w)" != 1 ]; then
+		echo "Forward not possible for $*!"
 	else
-		iptables -t nat -A PREROUTING -i "$4" -p "$1" --dport "$2" -j DNAT --to-destination "$3"
+		iptables -t nat -A PREROUTING -i "$interface" -p "$type" --dport "$port" -j DNAT --to "$value:$port"
 		ErrorTest "$?"
 	fi
-#	echo "FWD - $*"
+}
+
+ProcessRule() {
+case "$1" in
+  "inp")
+    shift; InputAccept $*
+  ;;
+  "fwd")
+    shift; Forward $*
+  ;;
+  "out")
+    shift; OutputAccept $*
+  ;;
+  *)
+    echo "Woops! Unkonwn rule"
+  ;;
+esac
 }
 
 ResetRules() {
@@ -88,7 +116,7 @@ ResetRules() {
 		iptables -t "$1" -F
 	else
 		TableList="filter nat mangle raw security "
-		for Table in `echo $TableList`; do
+		for Table in $TableList; do
 			iptables -t "$Table" -F
 		done
 	fi
@@ -105,78 +133,39 @@ fi
 test -e /etc/firewall || ( echo "No configuration file at /etc/firewall"; exit 1 )
 
 if [ "$?" != "0" ]; then
-	Vars="`LoadConfig $Conf`"
+	Vars="$(LoadConfig $Conf)"
 	eval "$Vars"
 else
-	Vars="`LoadConfig /etc/firewall`"
+	Vars="$(LoadConfig /etc/firewall)"
 	eval "$Vars"
 fi
 
 ResetRules
 
 iptables -A INPUT -p icmp -j ACCEPT
-
 iptables -A INPUT -i lo -j ACCEPT
 
-if [ "`grep -v "#" /etc/hosts.deny`" != "" ]; then
+if [ "$(grep -v "#" /etc/hosts.deny)" != "" ]; then
 	while read Var; do
-		iptables -A INPUT -i "$OutIfce" -s "$Var" -j REJECT
+		iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -s "$Var" -j REJECT
 	done < <(grep -v "#" /etc/hosts.deny)
 fi
 
 while read Var; do
-	Value="`echo $Var | cut -d= -f2`"
+	tmp="${Var//_/\ }\""
+	ProcessRule ${tmp//=/\ \"}
+done < <(env | egrep "udp_|tcp_|fwd_")
 
-	Tmp="`echo $Var | cut -d= -f1`"
+env | grep -q "fwd_" && sysctl -w net.ipv4.conf.all.route_localnet=1 > /dev/null
 
-	Rule="`echo $Tmp | cut -d_ -f1`"
-	Interface="`echo $Tmp | cut -d_ -f2`"
-	Type="`echo $Tmp | cut -d_ -f3`"
-	Port="`echo $Tmp | cut -d_ -f4`"
+iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -j REJECT
 
-	if [ "$Rule" = "inp" ]; then
-		if [ "`echo $Port | grep x`" != "" ]; then
-			InputAccept "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
-		else
-			InputAccept "$Type" "$Port" "$Value" "$Interface"
-		fi
-	fi
-	if [ "$Rule" = "out" ]; then
-		if [ "`echo $Port | grep x`" != "" ]; then
-			OutputAccept "$Type" "`echo $Port | tr x :`" "$Value" "$Interface"
-		else
-			OutputAccept "$Type" "$Port" "$Value" "$Interface"
-		fi
-	fi
-	if [ "$Rule" = "fwd" ]; then
-		if [ "`echo $Port | grep x`" != "" ]; then
-			Forward "$Type" "`echo $Port | tr x :`" "$Value:`echo $Port | tr x -`" "$Interface"
-		else
-			Forward "$Type" "$Port" "$Value:${Port}" "$Interface"
-		fi
+env | grep -q "lan=" || exit 0
 
-	fi
-done < <(env | grep -E "udp|tcp")
-
-fce="`cat /proc/net/dev | grep : | grep -v lo `"
-
-if [[ "`echo $fce | wc -l`" == "1" && "$OutIfce" == "" ]]; then
-    OutIfce="`echo $fce | cut -d: -f1 | tr -d ' '`"
-else
-    echo "You got more than one network adapters, you must define OutIfce (internet)!"
-    exit 1
-fi
-
-for Var in `echo $OutIfce`; do
-    iptables -A INPUT -i "$OutIfce" -m state --state ESTABLISHED,RELATED -j ACCEPT
-    iptables -A INPUT -i "$OutIfce" -j REJECT
-done
-
-for Var in `echo $InIfce`; do
-    echo 1 > /proc/sys/net/ipv4/ip_forward
-    iptables -A FORWARD -o $OutIfce -i $InIfce -m conntrack --ctstate NEW -j ACCEPT
-    iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    iptables -t nat -A POSTROUTING -o $OutIfce -j MASQUERADE
-done
+sysctl -w net.ipv4.ip_forward=1 > /dev/null
+iptables -A FORWARD -o $wan -i $lan -m conntrack --ctstate NEW -j ACCEPT
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -t nat -A POSTROUTING -o $wan -j MASQUERADE
 
 exit 0
