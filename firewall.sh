@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 Help() {
 	cat <<EOF
@@ -10,8 +10,8 @@ Script is reading /etc/hosts.deny and rejecting every ip writen there.
 
 Notation:
 
-1.        2.                  3.        4.                          5.
-[inp|fwd]_[Network interface]_[tcp|udp]_[Single port|0x1 Multiport]="Ip addres|List of ip addresses|Cidr Subnet"
+1.            2.                  3.        4.                          5.
+[inp|fwd|out]_[Network interface]_[tcp|udp]_[Single port|0x1 Multiport]="Ip addres|List of ip addresses|Cidr Subnet"
 
 1. Iptables chain
 2. Name of network interface
@@ -41,7 +41,7 @@ ErrorTest() {
 LoadConfig() {
 	buf=""
 	while read Line; do
-	buf="$buf export ${Line};"
+		buf="$buf export ${Line};"
 	done < <(grep -v '#' "$1")
 	echo "$buf"
 }
@@ -95,7 +95,7 @@ Forward() {
 	shift
 	value="${*//\"/}"
 
-	if [ "$(echo "$3" | wc -w)" != 1 ]; then
+	if [ "$(echo "$value" | wc -w)" != 1 ]; then
 		echo "Forward not possible for $*!"
 	else
 		iptables -t nat -A PREROUTING -i "$interface" -p "$type" --dport "$port" -j DNAT --to "$value:$port"
@@ -104,20 +104,20 @@ Forward() {
 }
 
 ProcessRule() {
-case "$1" in
-  "inp")
-    shift; InputAccept $*
-  ;;
-  "fwd")
-    shift; Forward $*
-  ;;
-  "out")
-    shift; OutputAccept $*
-  ;;
-  *)
-    echo "Woops! Unkonwn rule"
-  ;;
-esac
+	case "$1" in
+		"inp")
+  			shift; InputAccept $*
+		;;
+  		"fwd")
+    			shift; Forward $*
+       		;;
+		"out")
+			shift; OutputAccept $*
+		;;
+  		*)
+    			echo "Woops! Unkonwn rule"
+		;;
+  	esac
 }
 
 ResetRules() {
@@ -132,22 +132,15 @@ ResetRules() {
 	iptables -F
 }
 
-Conf="$1"
 
 if [[ "$1" = "-h" || "$1" = "--help" ]]; then
 	Help
 	exit 0
 fi
 
-test -e /etc/firewall || ( echo "No configuration file at /etc/firewall"; exit 1 )
-
-if [ "$?" != "0" ]; then
-	Vars="$(LoadConfig $Conf)"
-	eval "$Vars"
-else
-	Vars="$(LoadConfig /etc/firewall)"
-	eval "$Vars"
-fi
+conf="$1"
+vars="$(LoadConfig ${conf:=/etc/firewall})"
+eval "$vars"
 
 ResetRules
 
@@ -155,13 +148,13 @@ iptables -A INPUT -p icmp -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 
 if [ "$(grep -v "#" /etc/hosts.deny)" != "" ]; then
-	while read Var; do
-		iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -s "$Var" -j REJECT
+	while read var; do
+		iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -s "$var" -j REJECT
 	done < <(grep -v "#" /etc/hosts.deny)
 fi
 
-while read Var; do
-	tmp="${Var//_/\ }"
+while read var; do
+	tmp="${var//_/\ }"
 	ProcessRule ${tmp//=/\ }
 done < <(env | egrep "udp_|tcp_|fwd_")
 
