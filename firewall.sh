@@ -1,4 +1,3 @@
-root@dolf:/usr/local/bin# cat firewall.sh 
 #!/bin/bash
 
 Help() {
