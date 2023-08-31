@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 Help() {
 	cat <<EOF
@@ -48,9 +48,12 @@ LoadConfig() {
 
 InputAccept() {
 	interface="$1"
-	type="$2"
-	port="${3//x/:}"
-	value="${4//\"/}"
+	shift
+	type="$1"
+	shift
+	port="${1//x/:}"
+	shift
+	value="${*//\"/}"
 
 	if [ "$(echo "$value" | wc -w)" != 1 ]; then
 		for var in $value; do
@@ -65,9 +68,12 @@ InputAccept() {
 
 OutputAccept() {
 	interface="$1"
-	type="$2"
-	port="${3//x/:}"
-	value="${4//\"/}"
+	shift
+	type="$1"
+	shift
+	port="${1//x/:}"
+	shift
+	value="${*//\"/}"
 
 	if [ "$(echo "$value" | wc -w)" != 1 ]; then
 		for Var in $value; do
@@ -82,9 +88,13 @@ OutputAccept() {
 
 Forward() {
 	interface="$1"
-	type="$2"
-	port="${3//x/:}"
-	value="${4//\"/}"
+	shift
+	type="$1"
+	shift
+	port="${1//x/:}"
+	shift
+	value="${*//\"/}"
+
 	if [ "$(echo "$3" | wc -w)" != 1 ]; then
 		echo "Forward not possible for $*!"
 	else
@@ -151,8 +161,8 @@ if [ "$(grep -v "#" /etc/hosts.deny)" != "" ]; then
 fi
 
 while read Var; do
-	tmp="${Var//_/\ }\""
-	ProcessRule ${tmp//=/\ \"}
+	tmp="${Var//_/\ }"
+	ProcessRule ${tmp//=/\ }
 done < <(env | egrep "udp_|tcp_|fwd_")
 
 env | grep -q "fwd_" && sysctl -w net.ipv4.conf.all.route_localnet=1 > /dev/null
