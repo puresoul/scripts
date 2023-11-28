@@ -144,13 +144,15 @@ eval "$vars"
 
 ResetRules
 
+( which fail2ban-server && systemctl restart fail2ban ) &> /dev/null
+
 iptables -A INPUT -p icmp -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 
 if [ "$(grep -v "#" /etc/hosts.deny)" != "" ]; then
 	while read var; do
 		iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -s "$var" -j REJECT
-	done < <(grep -v "#" /etc/hosts.deny)
+	done < <(grep -v "#" /etc/hosts.deny | cut -d: -f2)
 fi
 
 while read var; do
