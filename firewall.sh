@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Help() {
-	cat <<EOF
+        cat <<EOF
 Iptables shell firewall wrapper
 
 reads rules from /etc/firewall file and translate them into iptables commands...
@@ -26,116 +26,133 @@ wan="eth0"
 lan="eth1"
 #      1.  2.   3.  4.   5.
 inp_eth0_tcp_80="0.0.0.0/0"
-inp_eth0_tcp_1024x2000="0.0.0.0/0"
-fwd_eth0_tcp_80="10.0.0.1"
+inp_wan_tcp_1024x2000="0.0.0.0/0"
+fwd_eth0_tcp_8080="10.0.0.1"
 EOF
 }
 
 ErrorTest() {
-	if [ "$1" != "0" ]; then
-		echo "Problem in configuration!"
-		exit 0
-	fi
+        if [ "$1" != "0" ]; then
+                echo "Problem in configuration!"
+                exit 0
+        fi
 }
 
 LoadConfig() {
-	buf=""
-	while read Line; do
-		buf="$buf export ${Line};"
-	done < <(grep -v '#' "$1")
-	echo "$buf"
+        buf=""
+        while read Line; do
+                buf="$buf export ${Line};"
+        done < <(grep -v '#' "$1")
+        echo "$buf"
 }
 
 InputAccept() {
-	interface="$1"
-	shift
-	type="$1"
-	shift
-	port="${1//x/:}"
-	shift
-	value="${*//\"/}"
+        if [[ "$1" == "wan" || "$1" == "lan" ]]; then
+                interface=$(eval echo \$${1})
+        else
+                interface="$1"
+        fi
+        shift
+        type="$1"
+        shift
+        port="${1//x/:}"
+        shift
+        value="${*//\"/}"
 
-	if [ "$(echo "$value" | wc -w)" != 1 ]; then
-		for var in $value; do
-			iptables -A INPUT -i "$interface" -p "$type" --dport "$port" -s "$var" -j ACCEPT
-			ErrorTest "$?"
-		done
-	else
-		iptables -A INPUT -i "$interface" -p "$type" --dport "$port" -s "$value" -j ACCEPT
-		ErrorTest "$?"
-	fi
+        if [ "$(echo "$value" | wc -w)" != 1 ]; then
+                for var in $value; do
+                        iptables -A INPUT -i "$interface" -p "$type" --dport "$port" -s "$var" -j ACCEPT
+                        ErrorTest "$?"
+                done
+        else
+                iptables -A INPUT -i "$interface" -p "$type" --dport "$port" -s "$value" -j ACCEPT
+                ErrorTest "$?"
+        fi
 }
 
 OutputAccept() {
-	interface="$1"
-	shift
-	type="$1"
-	shift
-	port="${1//x/:}"
-	shift
-	value="${*//\"/}"
+        if [[ "$1" == "wan" || "$1" == "lan" ]]; then
+                interface=$(eval echo \$${1})
+        else
+                interface="$1"
+        fi
+        shift
+        type="$1"
+        shift
+        port="${1//x/:}"
+        shift
+        value="${*//\"/}"
 
-	if [ "$(echo "$value" | wc -w)" != 1 ]; then
-		for Var in $value; do
-			iptables -A OUTPUT -o "$interface" -p "$type" --sport "$port" -s "$Var" -j ACCEPT
-			ErrorTest "$?"
-		done
-	else
-		iptables -A OUTPUT -o "$interface" -p "$type" --sport "$port" -s "$value" -j ACCEPT
-		ErrorTest "$?"
-	fi
+        if [ "$(echo "$value" | wc -w)" != 1 ]; then
+                for Var in $value; do
+                        iptables -A OUTPUT -o "$interface" -p "$type" --sport "$port" -s "$Var" -j ACCEPT
+                        ErrorTest "$?"
+                done
+        else
+                iptables -A OUTPUT -o "$interface" -p "$type" --sport "$port" -s "$value" -j ACCEPT
+                ErrorTest "$?"
+        fi
 }
 
 Forward() {
-	interface="$1"
-	shift
-	type="$1"
-	shift
-	port="${1//x/:}"
-	shift
-	value="${*//\"/}"
+        if [[ "$1" == "wan" || "$1" == "lan" ]]; then
+                interface=$(eval echo \$${1})
+        else
+                interface="$1"
+        fi
+        shift
+        type="$1"
+        shift
+        port="${1//x/:}"
+        shift
+        value="${*//\"/}"
 
-	if [ "$(echo "$value" | wc -w)" != 1 ]; then
-		echo "Forward not possible for $*!"
-	else
-		iptables -t nat -A PREROUTING -i "$interface" -p "$type" --dport "$port" -j DNAT --to "$value:$port"
-		ErrorTest "$?"
-	fi
+        if [ "$value" == "" ]; then
+                iptables -t nat -A PREROUTING -i "$interface" -p "$type" -j DNAT --to "$port"
+                return
+        fi
+
+        if [ "$(echo "$value" | wc -w)" != 1 ]; then
+                echo "Forward not possible for $*!"
+        else
+                iptables -t nat -A PREROUTING -i "$interface" -p "$type" --dport "$port" -j DNAT --to "$value:$(echo $port | tr ':' '-')"
+                ErrorTest "$?"
+        fi
 }
 
 ProcessRule() {
-	case "$1" in
-		"inp")
-  			shift; InputAccept $*
-		;;
-  		"fwd")
-    			shift; Forward $*
-       		;;
-		"out")
-			shift; OutputAccept $*
-		;;
-  		*)
-    			echo "Woops! Unkonwn rule"
-		;;
-  	esac
+        case "$1" in
+                "inp")
+                        shift; InputAccept $*
+                ;;
+                "fwd")
+                        shift; Forward $*
+                ;;
+                "out")
+                        shift; OutputAccept $*
+                ;;
+                *)
+                        echo "Woops! Unkonwn rule"
+                ;;
+        esac
 }
 
 ResetRules() {
-	if [ "$1" != "" ]; then
-		iptables -t "$1" -F
-	else
-		TableList="filter nat mangle raw security "
-		for Table in $TableList; do
-			iptables -t "$Table" -F
-		done
-	fi
-	iptables -F
+        if [ "$1" != "" ]; then
+                iptables -t "$1" -F
+        else
+                TableList="filter nat mangle raw security "
+                for Table in $TableList; do
+                        iptables -t "$Table" -F
+                done
+        fi
+        iptables -F
 }
 
 
 if [[ "$1" = "-h" || "$1" = "--help" ]]; then
-	Help
-	exit 0
+        Help
+        exit 0
 fi
 
 conf="$1"
@@ -150,14 +167,14 @@ iptables -A INPUT -p icmp -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 
 if [ "$(grep -v "#" /etc/hosts.deny)" != "" ]; then
-	while read var; do
-		iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -s "$var" -j REJECT
-	done < <(grep -v "#" /etc/hosts.deny | cut -d: -f2)
+        while read var; do
+                iptables -A INPUT -i "${wan:=$(route | grep default | awk '{print $8}')}" -s "$var" -j REJECT
+        done < <(grep -v "#" /etc/hosts.deny | cut -d: -f2)
 fi
 
 while read var; do
-	tmp="${var//_/\ }"
-	ProcessRule ${tmp//=/\ }
+        tmp="${var//_/\ }"
+        ProcessRule ${tmp//=/\ }
 done < <(env | egrep "udp_|tcp_|fwd_")
 
 env | grep -q "fwd_" && sysctl -w net.ipv4.conf.all.route_localnet=1 > /dev/null
@@ -171,5 +188,3 @@ sysctl -w net.ipv4.ip_forward=1 > /dev/null
 iptables -A FORWARD -o $wan -i $lan -m conntrack --ctstate NEW -j ACCEPT
 iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -t nat -A POSTROUTING -o $wan -j MASQUERADE
-
-exit 0
